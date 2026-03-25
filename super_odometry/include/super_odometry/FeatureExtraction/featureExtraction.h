@@ -117,7 +117,7 @@ namespace super_odometry {
 
         void laserCloudHandler(const sensor_msgs::msg::PointCloud2::SharedPtr laserCloudMsg);
 
-        void livoxHandler(const livox_ros_driver2::msg::CustomMsg::UniquePtr msg);
+        void livoxHandler(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
 
         void uniformFeatureExtraction(const pcl::PointCloud<point_os::PointcloudXYZITR>::Ptr &pc_in, 
             pcl::PointCloud<pcl::PointXYZI>::Ptr &pc_out_surf, int skip_num, float block_range);
@@ -181,7 +181,7 @@ namespace super_odometry {
         rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subLaserCloud;
         rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr subImu;
         rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr subOdom;
-        rclcpp::Subscription<livox_ros_driver2::msg::CustomMsg>::SharedPtr subLivoxCloud;
+        rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subLivoxCloud;
 
         // Publishers
         rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pubLaserCloud;

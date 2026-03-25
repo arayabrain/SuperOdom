@@ -1,14 +1,14 @@
 /**:
   ros__parameters:
-    imu_topic: "/imu/data"
-    laser_topic: "/lidar/scan"
+    imu_topic: "/livox/center/imu"
+    laser_topic: "/livox/center/points"
     sensor: "livox"
     use_imu_roll_pitch: false
     save_ply: false   # This can affect real-time performance; make sure you have enough memory for saving point cloud
     
     world_frame: "map"
     world_frame_rot: "map_rot"
-    sensor_frame: "sensor"
+    sensor_frame: "center_livox_hap"
     sensor_frame_rot: "sensor_rot"
 
     imu_acc_x_limit: 0.5
@@ -18,7 +18,7 @@
     # Feature Extraction Params
     feature_extraction_node:
         scan_line: 4 
-        min_range: 0.2    #<!-- remove too closed points -->
+        min_range: 2.7    #<!-- remove too closed points -->
         filter_point_size: 3
 
     # Laser Mapping Params

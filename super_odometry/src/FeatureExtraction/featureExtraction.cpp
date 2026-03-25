@@ -70,9 +70,12 @@ namespace super_odometry {
                     std::bind(&featureExtraction::laserCloudHandler, this,
                     std::placeholders::_1), sub_options);
         } else if (config_.sensor == SensorType::LIVOX) {
-            subLivoxCloud = this->create_subscription<livox_ros_driver2::msg::CustomMsg>(LASER_TOPIC, 20, 
+            subLivoxCloud = this->create_subscription<sensor_msgs::msg::PointCloud2>(LASER_TOPIC, 20, 
                     std::bind(&featureExtraction::livoxHandler, this,
                     std::placeholders::_1), sub_options);
+            // subLaserCloud = this->create_subscription<sensor_msgs::msg::PointCloud2>(LASER_TOPIC, laser_qos, 
+            //         std::bind(&featureExtraction::laserCloudHandler, this,
+            //         std::placeholders::_1), sub_options);
         } //TODO: add this to config
 
         subImu = this->create_subscription<sensor_msgs::msg::Imu>(
@@ -772,7 +775,7 @@ namespace super_odometry {
     }
 
 
-    void featureExtraction::livoxHandler(const livox_ros_driver2::msg::CustomMsg::UniquePtr msg)
+    void featureExtraction::livoxHandler(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
     {   
         frameCount = frameCount + 1;
         if (frameCount % config_.skipFrame != 0)
@@ -783,31 +786,41 @@ namespace super_odometry {
         pcl::PointCloud<point_os::PointcloudXYZITR>::Ptr pointCloud(
             new pcl::PointCloud<point_os::PointcloudXYZITR>());
         
-        pointCloud->points.resize(msg->point_num);
+        pcl::fromROSMsg(*msg, *pointCloud);
 
-        Eigen::Matrix3d rotation_matrix = Eigen::Matrix3d::Identity();
-        if (!imuBuf.empty()) {
-            rotation_matrix = imu_Init->imu_laser_R_Gravity;
-        } 
+        // pointCloud->erase(std::remove_if(pointCloud->begin(), pointCloud->end(),
+        // [](const point_os::PointcloudXYZITR& p) {
+        //     // Hardcoded bounds based on your parameters:
+        //     // X: [-3.0, 3.0] | Y: [-7.0, 2.0] | Z: [-5.0, 5.0]
+        //     return (p.x >= -3.0f && p.x <= 3.0f &&
+        //             p.y >= -7.0f && p.y <= 2.0f &&
+        //             p.z >= -5.0f && p.z <= 5.0f);
+        // }), pointCloud->end());
+        // pointCloud->points.resize(msg->point_num);
+
+        // Eigen::Matrix3d rotation_matrix = Eigen::Matrix3d::Identity();
+        // if (!imuBuf.empty()) {
+        //     rotation_matrix = imu_Init->imu_laser_R_Gravity;
+        // } 
         
-        if(config_.provide_point_time) {     
-            for (uint i=0; i < msg->point_num; i++) {
-                if ((msg->points[i].line < config_.N_SCANS) &&
-                    ((msg->points[i].tag & 0x30) == 0x10 || (msg->points[i].tag & 0x30) == 0x00)) {   
-                    Eigen::Vector3d point(msg->points[i].x, msg->points[i].y, msg->points[i].z);
-                    Eigen::Vector3d transformed_point = rotation_matrix * point;
-                    pointCloud->points[i].x = transformed_point.x();
-                    pointCloud->points[i].y = transformed_point.y();
-                    pointCloud->points[i].z = transformed_point.z();
-                    pointCloud->points[i].intensity = msg->points[i].reflectivity;
-                    pointCloud->points[i].time = msg->points[i].offset_time / float(1000000000);
-                    pointCloud->points[i].ring = msg->points[i].line;
-                }
-            }
-        } else {
-            RCLCPP_ERROR(this->get_logger(), "Please check yaml or livox driver to provide the timestamp for each point");
-            rclcpp::shutdown();
-        }
+        // if(config_.provide_point_time) {     
+        //     for (uint i=0; i < msg->data.size(); i++) {
+        //         if ((msg->points[i].line < config_.N_SCANS) &&
+        //             ((msg->points[i].tag & 0x30) == 0x10 || (msg->points[i].tag & 0x30) == 0x00)) {   
+        //             Eigen::Vector3d point(msg->points[i].x, msg->points[i].y, msg->points[i].z);
+        //             Eigen::Vector3d transformed_point = rotation_matrix * point;
+        //             pointCloud->points[i].x = transformed_point.x();
+        //             pointCloud->points[i].y = transformed_point.y();
+        //             pointCloud->points[i].z = transformed_point.z();
+        //             pointCloud->points[i].intensity = msg->points[i].reflectivity;
+        //             pointCloud->points[i].time = msg->points[i].offset_time / float(1000000000);
+        //             pointCloud->points[i].ring = msg->points[i].line;
+        //         }
+        //     }
+        // } else {
+        //     RCLCPP_ERROR(this->get_logger(), "Please check yaml or livox driver to provide the timestamp for each point");
+        //     rclcpp::shutdown();
+        // }
 
         manageLidarBuffer(pointCloud, msg->header.stamp.sec + msg->header.stamp.nanosec*1e-9);
 
