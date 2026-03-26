@@ -22,6 +22,7 @@
 #include <sensor_msgs/msg/imu.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 #include <super_odometry_msgs/msg/laser_feature.hpp>
+#include <std_msgs/msg/float64_multi_array.hpp>
 
 #include "super_odometry/container/MapRingBuffer.h"
 #include "super_odometry/sensor_data/imu/imu_data.h"
@@ -48,7 +49,14 @@ namespace super_odometry {
     constexpr std::size_t NUM_BLOCKS = 12;    // Number of blocks in a Velodyne packet
     constexpr double LIDAR_MESSAGE_TIME = (double)(NUM_BLOCKS * BLOCK_TIME_NS * 151) * 1e-9;
     constexpr double IMU_TIME_LENIENCY = 0.1;
-   
+    
+    struct CropboxConfig {
+        bool use_cropbox;
+        bool is_fixed;
+        std::vector<double> center;  // [x, y, z]
+        std::vector<double> lengths; // [dx, dy, dz]
+        std::string topic;
+    };
 
     struct bounds_t
     {
@@ -73,6 +81,7 @@ namespace super_odometry {
         double imu_acc_x_limit;
         double imu_acc_y_limit;
         double imu_acc_z_limit;
+        CropboxConfig cropbox;
     };
 
     struct ImuMeasurement {
@@ -168,6 +177,8 @@ namespace super_odometry {
 
         bool isPointValid(const point_os::PointcloudXYZITR& point);
 
+        void dynamicCropboxHandler(const std_msgs::msg::Float64MultiArray::SharedPtr msg) ;
+
         
         Imu::Ptr imu_Init = std::make_shared<Imu>();
         MapRingBuffer<Imu::Ptr> imuBuf;
@@ -182,6 +193,7 @@ namespace super_odometry {
         rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr subImu;
         rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr subOdom;
         rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subLivoxCloud;
+        rclcpp::Subscription<std_msgs::msg::Float64MultiArray>::SharedPtr subDynamicCropbox;
 
         // Publishers
         rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pubLaserCloud;
@@ -195,6 +207,7 @@ namespace super_odometry {
 
         int delay_count_;
         std::mutex m_buf;
+        std::mutex m_cropbox;
         int frameCount = 0;
 
         bool PUB_EACH_LINE = false;

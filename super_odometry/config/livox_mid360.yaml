@@ -21,6 +21,12 @@
         min_range: 2.7    #<!-- remove too closed points -->
         filter_point_size: 3
 
+        use_cropbox: true
+        cropbox_is_fixed: true
+        cropbox_center: [0.0, 0.0, 2.0]  # Center of the robot [x, y, z]
+        cropbox_lengths: [8.0, 5.0, 4.0] # Bounding box lengths [dx, dy, dz]
+        cropbox_topic: "/robot/dynamic_cropbox" # Only used if cropbox_is_fixed is false
+
     # Laser Mapping Params
     laser_mapping_node:
         mapping_line_resolution: 0.1

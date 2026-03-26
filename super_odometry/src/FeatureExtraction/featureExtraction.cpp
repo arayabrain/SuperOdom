@@ -113,8 +113,30 @@ namespace super_odometry {
             }
         }
 
+        if (config_.cropbox.use_cropbox && !config_.cropbox.is_fixed) {
+            subDynamicCropbox = this->create_subscription<std_msgs::msg::Float64MultiArray>(
+                config_.cropbox.topic, 10, 
+                std::bind(&featureExtraction::dynamicCropboxHandler, this, std::placeholders::_1), 
+                sub_options);
+            RCLCPP_INFO(this->get_logger(), "Dynamic cropbox enabled. Subscribed to: %s", config_.cropbox.topic.c_str());
+        } else if (config_.cropbox.use_cropbox && config_.cropbox.is_fixed) {
+            RCLCPP_INFO(this->get_logger(), "Fixed cropbox enabled.");
+        }
+
         delay_count_ = 0;
         m_imuPeriod = 1.0/imu_Init->imu_frequency;
+    }
+
+    void featureExtraction::dynamicCropboxHandler(const std_msgs::msg::Float64MultiArray::SharedPtr msg) {
+        // Expecting 6 values: [center_x, center_y, center_z, length_x, length_y, length_z]
+        if (msg->data.size() == 6) {
+            std::lock_guard<std::mutex> lock(m_cropbox); // Lock to ensure thread safety
+            config_.cropbox.center = {msg->data[0], msg->data[1], msg->data[2]};
+            config_.cropbox.lengths = {msg->data[3], msg->data[4], msg->data[5]};
+            RCLCPP_DEBUG(this->get_logger(), "Cropbox dynamically updated.");
+        } else {
+            RCLCPP_WARN(this->get_logger(), "Received invalid dynamic cropbox message. Expected 6 values, got %zu", msg->data.size());
+        }
     }
 
     bool featureExtraction::readParameters()
@@ -137,6 +159,11 @@ namespace super_odometry {
         this->declare_parameter<double>("feature_extraction_node.imu_acc_y_limit", 1.0);
         this->declare_parameter<double>("feature_extraction_node.imu_acc_z_limit", 1.0);
         this->declare_parameter<std::string>("feature_extraction_node.sensor", "livox");
+        this->declare_parameter<bool>("feature_extraction_node.use_cropbox", true);
+        this->declare_parameter<bool>("feature_extraction_node.cropbox_is_fixed", true);
+        this->declare_parameter<std::vector<double>>("feature_extraction_node.cropbox_center", {0.0, 0.0, 0.0});
+        this->declare_parameter<std::vector<double>>("feature_extraction_node.cropbox_lengths", {2.0, 2.0, 2.0});
+        this->declare_parameter<std::string>("feature_extraction_node.cropbox_topic", "/robot/dynamic_cropbox");
 
                 
         config_.N_SCANS = this->get_parameter("feature_extraction_node.scan_line").as_int();
@@ -159,6 +186,12 @@ namespace super_odometry {
         config_.imu_acc_x_limit = IMU_ACC_X_LIMIT;
         config_.imu_acc_y_limit = IMU_ACC_Y_LIMIT;
         config_.imu_acc_z_limit = IMU_ACC_Z_LIMIT;
+
+        config_.cropbox.use_cropbox = this->get_parameter("feature_extraction_node.use_cropbox").as_bool();
+        config_.cropbox.is_fixed = this->get_parameter("feature_extraction_node.cropbox_is_fixed").as_bool();
+        config_.cropbox.center = this->get_parameter("feature_extraction_node.cropbox_center").as_double_array();
+        config_.cropbox.lengths = this->get_parameter("feature_extraction_node.cropbox_lengths").as_double_array();
+        config_.cropbox.topic = this->get_parameter("feature_extraction_node.cropbox_topic").as_string();
 
         if (SENSOR == "livox") {
             config_.sensor = SensorType::LIVOX;
@@ -761,6 +794,29 @@ namespace super_odometry {
             pointCloud = pointCloudwithTime;
         }
 
+        if (config_.cropbox.use_cropbox) {
+            double min_x, max_x, min_y, max_y, min_z, max_z;
+            
+            // Scope the mutex lock so we only block while copying the 6 double values
+            {
+                std::lock_guard<std::mutex> crop_lock(m_cropbox);
+                min_x = config_.cropbox.center[0] - (config_.cropbox.lengths[0] / 2.0);
+                max_x = config_.cropbox.center[0] + (config_.cropbox.lengths[0] / 2.0);
+                min_y = config_.cropbox.center[1] - (config_.cropbox.lengths[1] / 2.0);
+                max_y = config_.cropbox.center[1] + (config_.cropbox.lengths[1] / 2.0);
+                min_z = config_.cropbox.center[2] - (config_.cropbox.lengths[2] / 2.0);
+                max_z = config_.cropbox.center[2] + (config_.cropbox.lengths[2] / 2.0);
+            } // crop_lock releases here
+
+            // Efficiently remove points inside the calculated bounds
+            pointCloud->erase(std::remove_if(pointCloud->begin(), pointCloud->end(),
+                [&](const point_os::PointcloudXYZITR& p) {
+                    return (p.x >= min_x && p.x <= max_x &&
+                            p.y >= min_y && p.y <= max_y &&
+                            p.z >= min_z && p.z <= max_z);
+                }), pointCloud->end());
+        }
+
         manageLidarBuffer(pointCloud, laserCloudMsg->header.stamp.sec + laserCloudMsg->header.stamp.nanosec * 1e-9);
 
         if(IMU_INIT==true or imuBuf.empty())
@@ -787,6 +843,29 @@ namespace super_odometry {
             new pcl::PointCloud<point_os::PointcloudXYZITR>());
         
         pcl::fromROSMsg(*msg, *pointCloud);
+        
+        if (config_.cropbox.use_cropbox) {
+            double min_x, max_x, min_y, max_y, min_z, max_z;
+            
+            // Scope the mutex lock so we only block while copying the 6 double values
+            {
+                std::lock_guard<std::mutex> crop_lock(m_cropbox);
+                min_x = config_.cropbox.center[0] - (config_.cropbox.lengths[0] / 2.0);
+                max_x = config_.cropbox.center[0] + (config_.cropbox.lengths[0] / 2.0);
+                min_y = config_.cropbox.center[1] - (config_.cropbox.lengths[1] / 2.0);
+                max_y = config_.cropbox.center[1] + (config_.cropbox.lengths[1] / 2.0);
+                min_z = config_.cropbox.center[2] - (config_.cropbox.lengths[2] / 2.0);
+                max_z = config_.cropbox.center[2] + (config_.cropbox.lengths[2] / 2.0);
+            } // crop_lock releases here
+
+            // Efficiently remove points inside the calculated bounds
+            pointCloud->erase(std::remove_if(pointCloud->begin(), pointCloud->end(),
+                [&](const point_os::PointcloudXYZITR& p) {
+                    return (p.x >= min_x && p.x <= max_x &&
+                            p.y >= min_y && p.y <= max_y &&
+                            p.z >= min_z && p.z <= max_z);
+                }), pointCloud->end());
+        }
 
         // pointCloud->erase(std::remove_if(pointCloud->begin(), pointCloud->end(),
         // [](const point_os::PointcloudXYZITR& p) {
