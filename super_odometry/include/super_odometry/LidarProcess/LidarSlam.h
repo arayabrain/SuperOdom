@@ -205,7 +205,7 @@ namespace super_odometry {
         rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr pubUncertaintyZ;
         rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr pubUncertaintyRoll;
         rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr pubUncertaintyPitch;
-        rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr pubUncertaintyYaw;;
+        rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr pubUncertaintyYaw;
 
         struct OptimizationParameter {
             EIGEN_MAKE_ALIGNED_OPERATOR_NEW

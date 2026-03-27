@@ -49,6 +49,11 @@ def generate_launch_description():
         "sensor_frame_rot",
         default_value="sensor_rot",
     )
+    
+    ekf_config_path = get_share_file(
+        package_name="super_odometry",
+        file_name="config/ekf.yaml"
+    )
 
     feature_extraction_node = Node(
         package="super_odometry",
@@ -89,6 +94,24 @@ def generate_launch_description():
             { "calibration_file": LaunchConfiguration("calibration_file")
         }],
     )
+    
+    map_to_slam_map_node = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        # Arguments: x, y, z, yaw, pitch, roll, parent_frame, child_frame
+        arguments=['0', '0', '3.376', '0', '0', '3.1415926', 'map', 'odom']
+    )
+    
+    ekf_filter_node = Node(
+        package='robot_localization',
+        executable='ukf_node',
+        name='ukf_filter_node',
+        output='screen',
+        parameters=[
+            ekf_config_path, 
+            {'use_sim_time': True} # Ensure RL also uses sim time if you are playing bags
+        ]
+    )
 
     
     return LaunchDescription([
@@ -103,4 +126,6 @@ def generate_launch_description():
         feature_extraction_node,
         laser_mapping_node,
         imu_preintegration_node,
+        ekf_filter_node,
+        map_to_slam_map_node
     ])

@@ -30,6 +30,9 @@
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2/transform_datatypes.h>
+#include <tf2_ros/buffer.h>
+#include <tf2_ros/transform_listener.h>
+#include <geometry_msgs/msg/transform_stamped.hpp>
 #include <std_msgs/msg/float32.hpp>
 #include "super_odometry/LidarProcess/LidarSlam.h"
 #include "super_odometry/LidarProcess/LocalMap.h"
@@ -67,6 +70,8 @@ namespace super_odometry {
         float init_pitch;
         float init_yaw;
         float read_pose_file;
+        bool publish_base_link;
+        std::string base_frame;
     };
 
     class laserMapping : public rclcpp::Node {
@@ -136,6 +141,8 @@ namespace super_odometry {
 
         //TODO: organize the publish topics and odometry
         void publishOdometry();
+
+        void publishBaseLinkOdometry(const nav_msgs::msg::Odometry& sensor_odom);
 
         void publishTopic();
 
@@ -207,6 +214,10 @@ namespace super_odometry {
         rclcpp::Publisher<std_msgs::msg::String>::SharedPtr pubprediction_source;
         rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr pubVIOPrediction; 
         rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr pubLIOPrediction;
+        rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr pubOdomBaseLink;
+
+        std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+        std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
         rclcpp::TimerBase::SharedPtr process_timer_;
 

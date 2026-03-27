@@ -658,7 +658,7 @@ void imuPreintegration::publishOdometry(
 
 
 void imuPreintegration::publishTransformsAndPath(nav_msgs::msg::Odometry &odometry, const sensor_msgs::msg::Imu& thisImu) {
-    publishTransform(odometry, thisImu);
+    //publishTransform(odometry, thisImu); // Dont publish the transform 
     updateAndPublishPath(odometry,thisImu);
 }
 
